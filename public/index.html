@@ -33,7 +33,12 @@ main { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
 .previews { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 7px; margin-top: 11px; }
 .prev { position: relative; aspect-ratio: 1; border-radius: 7px; overflow: hidden; background: #ddd; }
 .prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.prev canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
 .prev .rm { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; background: rgba(0,0,0,.68); color: #fff; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; line-height: 1; }
+.prev .video-badge { position: absolute; bottom: 3px; left: 3px; background: rgba(0,0,0,.72); color: #fff; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px; letter-spacing: .05em; }
+.prev .video-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); }
+.prev .play-icon { width: 28px; height: 28px; background: rgba(255,255,255,.9); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.prev .play-icon::after { content: ''; border-left: 9px solid #1a1a1a; border-top: 5px solid transparent; border-bottom: 5px solid transparent; margin-left: 2px; }
 textarea { width: 100%; border: 1.5px solid #e5e0d8; border-radius: 8px; padding: 10px 12px; font-family: inherit; font-size: 13px; resize: vertical; min-height: 68px; background: #fafaf8; color: #1a1a1a; outline: none; }
 textarea:focus { border-color: #d94f35; }
 .err { background: #fde8e4; border: 1px solid #f5bfb3; color: #c0392b; border-radius: 8px; padding: 10px 14px; font-size: 12px; margin-bottom: 10px; display: none; }
@@ -46,6 +51,11 @@ textarea:focus { border-color: #d94f35; }
 .spinner { width: 38px; height: 38px; border: 3px solid #e5e0d8; border-top-color: #d94f35; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 13px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 #loader p { color: #666; font-size: 13px; }
+/* Video progress bar */
+.video-progress { margin-top: 12px; }
+.video-progress-bar-wrap { background: #e5e0d8; border-radius: 4px; height: 6px; overflow: hidden; margin-top: 6px; }
+.video-progress-bar { background: #d94f35; height: 100%; border-radius: 4px; transition: width .3s ease; width: 0%; }
+.video-progress-label { font-size: 11px; color: #888; margin-top: 4px; }
 #results { display: none; }
 #results.show { display: block; }
 .res-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
@@ -132,6 +142,12 @@ footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; border
   <div id="loader">
     <div class="spinner"></div>
     <p id="loaderMsg">Analizando imágenes...</p>
+    <div id="videoProgressWrap" class="video-progress" style="display:none; max-width:320px; margin:12px auto 0;">
+      <div class="video-progress-bar-wrap">
+        <div class="video-progress-bar" id="videoProgressBar"></div>
+      </div>
+      <div class="video-progress-label" id="videoProgressLabel"></div>
+    </div>
   </div>
   <div id="results">
     <div class="res-top">
@@ -158,7 +174,9 @@ var TX = {
     t3: '3. Contexto adicional (opcional)', dzSub: 'JPG · PNG · MP4 · MOV',
     pickBtn: '📎 Seleccionar archivos', abtn: 'Analizar riesgos',
     loadFrames: 'Extrayendo fotogramas del vídeo...', loadAnalyze: 'Analizando imágenes y detectando riesgos...',
+    frameProgress: 'Fotograma {n} de {total}',
     noSec: 'Selecciona un sector antes de continuar.', noFiles: 'Sube al menos una imagen o vídeo.',
+    videoTooBig: 'El vídeo "{name}" es demasiado grande (máx. 500 MB). Usa un vídeo más corto o comprimido.',
     errApi: 'Error en el análisis', tRes: 'Informe de Riesgos', tPdf: 'Exportar PDF', tNew: 'Nuevo análisis',
     secOb: '🔴 Formaciones Obligatorias por Normativa', secRe: '🟢 Formaciones Recomendadas',
     OB: 'OBLIGATORIA', RE: 'RECOMENDADA', norm: 'Normativa:',
@@ -175,7 +193,9 @@ var TX = {
     t3: '3. Context addicional (opcional)', dzSub: 'JPG · PNG · MP4 · MOV',
     pickBtn: '📎 Seleccionar arxius', abtn: 'Analitzar riscos',
     loadFrames: 'Extraient fotogrames del vídeo...', loadAnalyze: 'Analitzant imatges i detectant riscos...',
+    frameProgress: 'Fotograma {n} de {total}',
     noSec: 'Selecciona un sector abans de continuar.', noFiles: 'Puja almenys una imatge o vídeo.',
+    videoTooBig: 'El vídeo "{name}" és massa gran (màx. 500 MB). Usa un vídeo més curt o comprimit.',
     errApi: "Error en l'anàlisi", tRes: 'Informe de Riscos', tPdf: 'Exportar PDF', tNew: 'Nova anàlisi',
     secOb: '🔴 Formacions Obligatòries per Normativa', secRe: '🟢 Formacions Recomanades',
     OB: 'OBLIGATÒRIA', RE: 'RECOMANADA', norm: 'Normativa:',
@@ -198,6 +218,7 @@ var SECTORS = [
   { id: 'educacion', icon: '🎓', es: 'Educación', ca: 'Educació' },
   { id: 'otro', icon: '🔧', es: 'Otro', ca: 'Altre' }
 ];
+
 function setLang(l) {
   lang = l;
   document.getElementById('btn-es').className = l === 'es' ? 'on' : '';
@@ -219,6 +240,7 @@ function setLang(l) {
   buildSectors();
   if (result) renderResults(result);
 }
+
 function buildSectors() {
   var g = document.getElementById('sectorGrid');
   g.innerHTML = '';
@@ -235,22 +257,68 @@ function buildSectors() {
     g.appendChild(b);
   });
 }
+
 function checkReady() {
   var btn = document.getElementById('analyzeBtn');
   var ok = sector && files.length > 0;
   btn.className = ok ? 'ready' : '';
   btn.disabled = !ok;
 }
+
 function handleFiles(input) {
+  var t = TX[lang];
+  var errEl = document.getElementById('errBox');
   Array.from(input.files).forEach(function(f) {
     if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) return;
     if (files.some(function(x) { return x.file.name === f.name && x.file.size === f.size; })) return;
-    files.push({ file: f, isVideo: f.type.startsWith('video/'), url: f.type.startsWith('image/') ? URL.createObjectURL(f) : null });
+    // Check video size (500 MB max)
+    if (f.type.startsWith('video/') && f.size > 500 * 1024 * 1024) {
+      errEl.textContent = t.videoTooBig.replace('{name}', f.name);
+      errEl.className = 'err show';
+      return;
+    }
+    var entry = { file: f, isVideo: f.type.startsWith('video/'), url: null, thumbCanvas: null };
+    files.push(entry);
+    // Generate thumbnail for videos
+    if (entry.isVideo) {
+      generateVideoThumbnail(f, files.length - 1);
+    } else {
+      entry.url = URL.createObjectURL(f);
+    }
     renderPreviews();
     checkReady();
   });
   input.value = '';
 }
+
+// Generate a real thumbnail from video first frame
+function generateVideoThumbnail(file, idx) {
+  var v = document.createElement('video');
+  v.muted = true;
+  v.playsInline = true;
+  v.src = URL.createObjectURL(file);
+  v.addEventListener('loadeddata', function() {
+    v.currentTime = Math.min(1, v.duration * 0.1);
+  });
+  v.addEventListener('seeked', function() {
+    var c = document.createElement('canvas');
+    c.width = 160; c.height = 160;
+    var ctx2 = c.getContext('2d');
+    // Draw centered crop
+    var vw = v.videoWidth, vh = v.videoHeight;
+    var scale = Math.max(160/vw, 160/vh);
+    var dw = vw*scale, dh = vh*scale;
+    ctx2.drawImage(v, (160-dw)/2, (160-dh)/2, dw, dh);
+    if (files[idx]) {
+      files[idx].thumbCanvas = c;
+      renderPreviews();
+    }
+    URL.revokeObjectURL(v.src);
+  });
+  v.onerror = function() { URL.revokeObjectURL(v.src); };
+  v.load();
+}
+
 function renderPreviews() {
   var g = document.getElementById('previews');
   g.innerHTML = '';
@@ -258,7 +326,25 @@ function renderPreviews() {
     var d = document.createElement('div');
     d.className = 'prev';
     if (e.isVideo) {
-      d.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;background:#222">🎬</div>';
+      if (e.thumbCanvas) {
+        // Show real thumbnail
+        var img = document.createElement('img');
+        img.src = e.thumbCanvas.toDataURL('image/jpeg', 0.8);
+        d.appendChild(img);
+      } else {
+        // Placeholder while thumbnail loads
+        d.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;background:#222">🎬</div>';
+      }
+      // Play overlay icon
+      var overlay = document.createElement('div');
+      overlay.className = 'video-overlay';
+      overlay.innerHTML = '<div class="play-icon"></div>';
+      d.appendChild(overlay);
+      // Video badge with filename truncated
+      var badge = document.createElement('div');
+      badge.className = 'video-badge';
+      badge.textContent = 'VID';
+      d.appendChild(badge);
     } else {
       var img = document.createElement('img');
       img.src = e.url;
@@ -267,11 +353,12 @@ function renderPreviews() {
     var rm = document.createElement('button');
     rm.className = 'rm';
     rm.textContent = '✕';
-    (function(idx) { rm.onclick = function() { files.splice(idx, 1); renderPreviews(); checkReady(); }; })(i);
+    (function(idx) { rm.onclick = function(ev) { ev.stopPropagation(); files.splice(idx, 1); renderPreviews(); checkReady(); }; })(i);
     d.appendChild(rm);
     g.appendChild(d);
   });
 }
+
 function fileToBase64(file) {
   return new Promise(function(res, rej) {
     var r = new FileReader();
@@ -280,30 +367,134 @@ function fileToBase64(file) {
     r.readAsDataURL(file);
   });
 }
-function extractFrames(file, n) {
-  n = n || 5;
+
+// Robust video frame extractor — works on mobile Safari, Chrome, Firefox
+function extractFrames(file, numFrames) {
+  numFrames = numFrames || 5;
   return new Promise(function(resolve) {
     var v = document.createElement('video');
     v.muted = true;
-    v.src = URL.createObjectURL(file);
-    var canvas = document.createElement('canvas'), frames = [], i = 0;
-    v.addEventListener('loadedmetadata', function() {
-      if (!v.duration || isNaN(v.duration)) { resolve([]); return; }
-      next();
-    });
-    function next() {
-      if (i >= n) { resolve(frames); return; }
-      v.currentTime = (v.duration / (n + 1)) * (i + 1);
+    v.playsInline = true;
+    v.preload = 'auto';
+    var objectUrl = URL.createObjectURL(file);
+    v.src = objectUrl;
+
+    var canvas = document.createElement('canvas');
+    var frames = [];
+    var frameIdx = 0;
+    var seekInProgress = false;
+    var timeoutId = null;
+    var timestamps = [];
+
+    function cleanup() {
+      clearTimeout(timeoutId);
+      URL.revokeObjectURL(objectUrl);
     }
+
+    function captureCurrentFrame() {
+      canvas.width = Math.min(v.videoWidth || 640, 1280);
+      canvas.height = Math.min(v.videoHeight || 360, 720);
+      // Maintain aspect ratio
+      if (v.videoWidth && v.videoHeight) {
+        var ratio = v.videoWidth / v.videoHeight;
+        if (canvas.width / canvas.height > ratio) {
+          canvas.width = Math.round(canvas.height * ratio);
+        } else {
+          canvas.height = Math.round(canvas.width / ratio);
+        }
+      }
+      canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
+      var b64 = canvas.toDataURL('image/jpeg', 0.72).split(',')[1];
+      frames.push(b64);
+    }
+
+    function seekToNext() {
+      if (frameIdx >= timestamps.length) {
+        cleanup();
+        resolve(frames);
+        return;
+      }
+      seekInProgress = true;
+      // Timeout fallback: if seeked doesn't fire in 4s, capture what we have and move on
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(function() {
+        if (seekInProgress) {
+          // Try to capture anyway
+          try { captureCurrentFrame(); } catch(e) {}
+          frameIdx++;
+          seekInProgress = false;
+          seekToNext();
+        }
+      }, 4000);
+      v.currentTime = timestamps[frameIdx];
+    }
+
     v.addEventListener('seeked', function() {
-      canvas.width = v.videoWidth || 640; canvas.height = v.videoHeight || 360;
-      canvas.getContext('2d').drawImage(v, 0, 0);
-      frames.push(canvas.toDataURL('image/jpeg', 0.75).split(',')[1]);
-      i++; next();
+      if (!seekInProgress) return;
+      clearTimeout(timeoutId);
+      seekInProgress = false;
+      try { captureCurrentFrame(); } catch(e) {}
+      frameIdx++;
+      // Small delay helps some browsers (especially mobile) stabilize between seeks
+      setTimeout(seekToNext, 80);
     });
-    v.onerror = function() { resolve([]); };
+
+    function onReady() {
+      var duration = v.duration;
+      if (!duration || isNaN(duration) || duration === Infinity) {
+        // Can't seek — try playing to get duration
+        cleanup();
+        resolve([]);
+        return;
+      }
+      // Calculate evenly spaced timestamps, skip very start and end
+      var step = duration / (numFrames + 1);
+      for (var i = 1; i <= numFrames; i++) {
+        timestamps.push(Math.min(step * i, duration - 0.1));
+      }
+      seekToNext();
+    }
+
+    v.addEventListener('loadedmetadata', function() {
+      // Some browsers need a small play then pause to allow seeking
+      if (v.duration && !isNaN(v.duration)) {
+        onReady();
+      }
+    });
+
+    v.addEventListener('durationchange', function() {
+      if (v.duration && !isNaN(v.duration) && timestamps.length === 0) {
+        onReady();
+      }
+    });
+
+    v.onerror = function() {
+      cleanup();
+      resolve(frames); // return what we have
+    };
+
+    // Global timeout: if nothing happens in 15s, give up
+    var globalTimeout = setTimeout(function() {
+      cleanup();
+      resolve(frames);
+    }, 15000);
+
+    v.addEventListener('loadedmetadata', function() { clearTimeout(globalTimeout); }, { once: false });
     v.load();
   });
+}
+
+function setProgress(pct, label) {
+  var wrap = document.getElementById('videoProgressWrap');
+  var bar = document.getElementById('videoProgressBar');
+  var lbl = document.getElementById('videoProgressLabel');
+  if (pct >= 0) {
+    wrap.style.display = 'block';
+    bar.style.width = pct + '%';
+    lbl.textContent = label || '';
+  } else {
+    wrap.style.display = 'none';
+  }
 }
 </script>
 <script>
@@ -313,20 +504,33 @@ async function analyze() {
   errEl.className = 'err';
   if (!sector) { errEl.textContent = t.noSec; errEl.className = 'err show'; return; }
   if (!files.length) { errEl.textContent = t.noFiles; errEl.className = 'err show'; return; }
+
   document.getElementById('formView').style.display = 'none';
   document.getElementById('loader').className = 'show';
   document.getElementById('results').className = '';
+
   var loaderMsg = document.getElementById('loaderMsg');
   var imageContents = [];
+
   for (var i = 0; i < files.length; i++) {
     var entry = files[i];
     if (entry.isVideo) {
       loaderMsg.textContent = t.loadFrames;
-      var frames = await extractFrames(entry.file, 5);
+      setProgress(0, '');
+      var numFrames = 5;
+      var frames = await extractFrames(entry.file, numFrames);
       frames.forEach(function(b64, j) {
-        imageContents.push({ type: 'text', text: 'Fotograma ' + (j+1) + ':' });
+        var pct = Math.round(((j + 1) / frames.length) * 100);
+        var label = t.frameProgress.replace('{n}', j+1).replace('{total}', frames.length);
+        setProgress(pct, label);
+        imageContents.push({ type: 'text', text: 'Vídeo "' + entry.file.name + '" — Fotograma ' + (j+1) + ' de ' + frames.length + ':' });
         imageContents.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } });
       });
+      if (frames.length === 0) {
+        // Fallback: no frames extracted, note it as context
+        imageContents.push({ type: 'text', text: 'Vídeo adjunto: "' + entry.file.name + '" (no se pudieron extraer fotogramas — analiza en base al contexto y sector).' });
+      }
+      setProgress(-1);
     } else {
       loaderMsg.textContent = t.loadAnalyze;
       var b64 = await fileToBase64(entry.file);
@@ -334,16 +538,21 @@ async function analyze() {
       imageContents.push({ type: 'image', source: { type: 'base64', media_type: entry.file.type || 'image/jpeg', data: b64 } });
     }
   }
+
   loaderMsg.textContent = t.loadAnalyze;
+  setProgress(-1);
+
   var sectorLabel = SECTORS.find(function(s) { return s.id === sector; })[lang];
   var ctx = document.getElementById('ctx').value.trim();
   var respLang = lang === 'ca' ? 'catalán' : 'castellano';
+
   var payload = {
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4000,
     system: 'Eres un experto en Prevención de Riesgos Laborales (PRL) en España con profundo conocimiento de la LPRL (Ley 31/1995), sus reglamentos de desarrollo y los criterios del INSST. Respondes siempre en ' + respLang + '. Analiza todas las imágenes y responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin bloques de código: {"sector":"","resumen":"","riesgos":[{"nombre":"","descripcion":"","severidad":"alta|media|baja","formaciones":[{"nombre":"","tipo":"obligatoria|recomendada","justificacion":"","normativa":[]}]}],"saludMejoras":[],"ahorroEconomico":[],"ahorroEstimado":""}. Detecta TODOS los riesgos visibles. Cita normativa española real.',
     messages: [{ role: 'user', content: [{ type: 'text', text: 'Sector: ' + sectorLabel + (ctx ? '. Contexto: ' + ctx : '') + '.' }].concat(imageContents) }]
   };
+
   try {
     var resp = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!resp.ok) { var ed = await resp.json().catch(function() { return {}; }); throw new Error((ed.error && ed.error.message) || 'HTTP ' + resp.status); }
@@ -361,6 +570,7 @@ async function analyze() {
     errEl.className = 'err show';
   }
 }
+
 function renderResults(data) {
   var t = TX[lang];
   var obSet = new Set(), reSet = new Set();
@@ -373,7 +583,7 @@ function renderResults(data) {
   document.getElementById('summaryTxt').textContent = data.resumen || '';
   var c = document.getElementById('riskContainer'); c.innerHTML = '';
   var obR = data.riesgos.filter(function(r) { return r.formaciones.some(function(f) { return f.tipo === 'obligatoria'; }); });
-  var reR = data.riesgos.filter(function(r) { return r.formaciones.some(function(f) { return f.tipo === 'recomendada'; }); });
+  var reR = data.riesgos.filter(function(r) { return r.formaciones.some(function(f) { return f.tipo === 'recomendada'; }) && !r.formaciones.some(function(f) { return f.tipo === 'obligatoria'; }); });
   function addSection(title, risks) {
     if (!risks.length) return;
     var h = document.createElement('div'); h.className = 'sec-title'; h.textContent = title; c.appendChild(h);
@@ -385,6 +595,7 @@ function renderResults(data) {
     '<div class="ben health"><div class="ben-title">' + TX[lang].health + '</div><ul>' + (data.saludMejoras || []).map(function(m) { return '<li>' + m + '</li>'; }).join('') + '</ul></div>' +
     '<div class="ben save"><div class="ben-title">' + TX[lang].saving + '</div><ul>' + (data.ahorroEconomico || []).map(function(m) { return '<li>' + m + '</li>'; }).join('') + '</ul></div>';
 }
+
 function buildRiskCard(risk, t) {
   var div = document.createElement('div'); div.className = 'risk-card';
   var head = document.createElement('div'); head.className = 'risk-head';
@@ -397,6 +608,7 @@ function buildRiskCard(risk, t) {
   head.onclick = function() { var open = body.classList.toggle('open'); head.querySelector('.chev').classList.toggle('open', open); };
   div.appendChild(head); div.appendChild(body); return div;
 }
+
 function exportPDF() {
   if (!result) return;
   var t = TX[lang];
@@ -435,6 +647,7 @@ function exportPDF() {
   if (result.ahorroEstimado) { y += 3; line(t.sSav + ': ' + result.ahorroEstimado, 10, true, [30,122,74]); }
   doc.save('RiskScan_PRL_Informe.pdf');
 }
+
 function resetApp() {
   files = []; sector = null; result = null;
   document.getElementById('previews').innerHTML = '';
@@ -442,10 +655,12 @@ function resetApp() {
   document.getElementById('errBox').className = 'err';
   document.getElementById('results').className = '';
   document.getElementById('formView').style.display = '';
+  setProgress(-1);
   checkReady();
   document.querySelectorAll('.sec-btn').forEach(function(b) { b.className = 'sec-btn'; });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
 buildSectors();
 </script>
 </body>
