@@ -2,8 +2,9 @@ const express = require('express');
 const path = require('path');
 const app = express();
 
+// Increased limit for video frames (multiple frames = more data)
 app.use(express.json({ limit: '150mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname)));
 
 app.post('/api/analyze', async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
