@@ -161,7 +161,10 @@ footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; border
     <p id="hsub">Sube imágenes del lugar de trabajo y obtén un informe completo con formaciones obligatorias, recomendadas y referencias normativas.</p>
   </div>
   <div id="histPanel">
-    <div class="hist-title">📋 <span id="tHist">Historial de análisis</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="hist-title" style="margin-bottom:0">📋 <span id="tHist">Historial de análisis</span></div>
+      <button class="hist-btn" onclick="toggleHistory()">✕ Cerrar</button>
+    </div>
     <div class="hist-list" id="histList"></div>
   </div>
   <div id="formView">
@@ -266,14 +269,22 @@ function loadHistoryEntry(entry) {
   document.getElementById('loader').className = '';
   renderResults(result);
   document.getElementById('results').className = 'show';
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function toggleHistory() {
   var p = document.getElementById('histPanel');
+  var form = document.getElementById('formView');
+  var res = document.getElementById('results');
   var isOpen = p.classList.toggle('show');
-  renderHistory();
-  if (isOpen) p.scrollIntoView({ behavior: 'smooth' });
+  if (isOpen) {
+    form.style.display = 'none';
+    res.className = '';
+    renderHistory();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    form.style.display = '';
+  }
 }
 
 var SPACTIVA_CATALOG_TEXT = 'Convenis sectorials (obligatoria), Formació Inicial (obligatoria), Nivell Bàsic en PRL (obligatoria), Seguretat Equips Automotors (obligatoria), Treballs d\'Especial Perillositat (obligatoria), Ergonomia (recomendada), Riscos Psicosocials (recomendada), Seguretat basada en el comportament (recomendada), Emergències (obligatoria), Primers auxilis (recomendada), Seguretat vial i Accidents de Trànsit (recomendada), AEQT-AEST Sector Petroquímic (obligatoria)';
@@ -786,7 +797,17 @@ function exportPDF() {
       line('• [' + (ob ? t.OB : t.RE) + '] ' + f.nombre, 9, true, ob ? [232,69,28] : [30,122,74], 3);
       line(f.justificacion, 9, false, [80,80,80], 6);
       line(t.norm + ' ' + (f.normativa || []).join(' | '), 8, false, [150,150,150], 6);
-    }); y += 3;
+    });
+    // Cobertura SP Activa
+    if (r.coberturaEmpresa) {
+      var cov = r.coberturaEmpresa;
+      var covColor = cov.estado === 'cubierto' ? [30,122,74] : cov.estado === 'parcial' ? [183,119,13] : [192,57,43];
+      var covLabel = cov.estado === 'cubierto' ? 'Cubierto por SP Activa' : cov.estado === 'parcial' ? 'Cobertura parcial SP Activa' : 'Sin formacion en SP Activa';
+      line('SP Activa: ' + covLabel, 9, true, covColor, 3);
+      if (cov.formacion) line('Curso: ' + cov.formacion, 9, false, [80,80,80], 6);
+      if (cov.gap) line('Brecha: ' + cov.gap, 9, false, [192,57,43], 6);
+    }
+    y += 3;
   });
   // Mejoras de salud — sin emojis
   y += 4;
