@@ -159,23 +159,7 @@ footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; border
       <div class="card-title" id="t3">3. Contexto adicional (opcional)</div>
       <textarea id="ctx" placeholder="Ej: almacén con carretillas elevadoras, turnos nocturnos..."></textarea>
     </div>
-    <div class="card">
-      <div class="card-title" id="t4">4. Catálogo de formaciones de la empresa (opcional)</div>
-      <p style="font-size:12px;color:#888;margin-bottom:12px" id="t4sub">Añade los cursos disponibles en tu empresa para cruzarlos con los riesgos detectados.</p>
-      <div class="catalog-list" id="catalogList"></div>
-      <div class="catalog-add">
-        <input type="text" id="catalogInput" placeholder="Nombre del curso..." maxlength="100" onkeydown="if(event.key==='Enter')addCatalogItem()">
-        <select id="catalogType">
-          <option value="obligatoria" id="catOptOb">Obligatoria</option>
-          <option value="recomendada" id="catOptRe">Recomendada</option>
-        </select>
-        <button class="catalog-add-btn" onclick="addCatalogItem()" id="catalogAddBtn">+ Añadir</button>
-      </div>
-      <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
-        <button style="background:none;border:1.5px solid #1e2b5e;border-radius:7px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#1e2b5e" onclick="importSpactiva()">↩ Restaurar catálogo SP Activa</button>
-      </div>
-    </div>
-    <div class="err" id="errBox"></div>
+<div class="err" id="errBox"></div>
     <button id="analyzeBtn" onclick="analyze()">🔍 <span id="abtn">Analizar riesgos</span></button>
   </div>
   <div id="loader">
@@ -205,22 +189,7 @@ footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; border
 </footer>
 <script>
 var lang = 'es', sector = null, files = [], result = null;
-var SPACTIVA_CATALOG = [
-  { nombre: 'Convenis sectorials', tipo: 'obligatoria' },
-  { nombre: 'Formació Inicial', tipo: 'obligatoria' },
-  { nombre: 'Nivell Bàsic en PRL', tipo: 'obligatoria' },
-  { nombre: 'Seguretat Equips Automotors', tipo: 'obligatoria' },
-  { nombre: 'Treballs d\'Especial Perillositat', tipo: 'obligatoria' },
-  { nombre: 'Ergonomia', tipo: 'recomendada' },
-  { nombre: 'Riscos Psicosocials', tipo: 'recomendada' },
-  { nombre: 'Seguretat basada en el comportament', tipo: 'recomendada' },
-  { nombre: 'Emergències', tipo: 'obligatoria' },
-  { nombre: 'Primers auxilis', tipo: 'recomendada' },
-  { nombre: 'Seguretat vial i Accidents de Trànsit', tipo: 'recomendada' },
-  { nombre: 'AEQT-AEST Sector Petroquímic', tipo: 'obligatoria' }
-];
-var companyCatalog = JSON.parse(localStorage.getItem('riskscan_catalog') || 'null');
-if (companyCatalog === null) { companyCatalog = SPACTIVA_CATALOG.slice(); localStorage.setItem('riskscan_catalog', JSON.stringify(companyCatalog)); }
+var SPACTIVA_CATALOG_TEXT = 'Convenis sectorials (obligatoria), Formació Inicial (obligatoria), Nivell Bàsic en PRL (obligatoria), Seguretat Equips Automotors (obligatoria), Treballs d\'Especial Perillositat (obligatoria), Ergonomia (recomendada), Riscos Psicosocials (recomendada), Seguretat basada en el comportament (recomendada), Emergències (obligatoria), Primers auxilis (recomendada), Seguretat vial i Accidents de Trànsit (recomendada), AEQT-AEST Sector Petroquímic (obligatoria)';
 var TX = {
   es: {
     h1: 'Detecta riesgos laborales desde tus <span>fotos y vídeos</span>',
@@ -239,11 +208,6 @@ var TX = {
     sRisk: 'Riesgos', sOb: 'Oblig.', sRe: 'Recom.', sSav: 'Ahorro/año',
     sev: { alta: 'ALTA', media: 'MEDIA', baja: 'BAJA' },
     ctx: 'Ej: almacén con carretillas elevadoras, turnos nocturnos...',
-    t4: '4. Catálogo de formaciones de la empresa (opcional)',
-    t4sub: 'Añade los cursos disponibles en tu empresa para cruzarlos con los riesgos detectados.',
-    catOptOb: 'Obligatoria', catOptRe: 'Recomendada', catalogAddBtn: '+ Añadir',
-    catalogInput: 'Nombre del curso...',
-    catalogEmpty: 'Sin cursos añadidos.',
     coverCovered: '✅ Cubierto por formación de empresa',
     coverPartial: '⚠️ Cobertura parcial',
     coverGap: '❌ Sin formación en empresa',
@@ -268,11 +232,6 @@ var TX = {
     sRisk: 'Riscos', sOb: 'Oblig.', sRe: 'Recom.', sSav: 'Estalvi/any',
     sev: { alta: 'ALTA', media: 'MITJA', baja: 'BAIXA' },
     ctx: 'Ex: magatzem amb carretons elevadors, torns nocturns...',
-    t4: "4. Catàleg de formacions de l'empresa (opcional)",
-    t4sub: "Afegeix els cursos disponibles a la teva empresa per creuar-los amb els riscos detectats.",
-    catOptOb: 'Obligatòria', catOptRe: 'Recomanada', catalogAddBtn: '+ Afegir',
-    catalogInput: 'Nom del curs...',
-    catalogEmpty: 'Sense cursos afegits.',
     coverCovered: '✅ Cobert per formació de empresa',
     coverPartial: '⚠️ Cobertura parcial',
     coverGap: '❌ Sense formació a empresa',
@@ -311,13 +270,7 @@ function setLang(l) {
   document.getElementById('tPdf').textContent = t.tPdf;
   document.getElementById('tNew').textContent = t.tNew;
   document.getElementById('ctx').placeholder = t.ctx;
-  document.getElementById('t4').textContent = t.t4;
-  document.getElementById('t4sub').textContent = t.t4sub;
-  document.getElementById('catOptOb').textContent = t.catOptOb;
-  document.getElementById('catOptRe').textContent = t.catOptRe;
-  document.getElementById('catalogAddBtn').textContent = t.catalogAddBtn;
-  document.getElementById('catalogInput').placeholder = t.catalogInput;
-  document.getElementById('footerTxt').textContent = t.footer;
+document.getElementById('footerTxt').textContent = t.footer;
   buildSectors();
   if (result) renderResults(result);
 }
@@ -579,51 +532,6 @@ function setProgress(pct, label) {
 }
 </script>
 <script>
-function saveCatalog() {
-  localStorage.setItem('riskscan_catalog', JSON.stringify(companyCatalog));
-}
-
-function renderCatalog() {
-  var t = TX[lang];
-  var el = document.getElementById('catalogList');
-  el.innerHTML = '';
-  if (!companyCatalog.length) {
-    el.innerHTML = '<span class="catalog-empty">' + t.catalogEmpty + '</span>';
-    return;
-  }
-  companyCatalog.forEach(function(item, i) {
-    var d = document.createElement('div');
-    d.className = 'catalog-item';
-    var typeLabel = item.tipo === 'obligatoria' ? t.catOptOb : t.catOptRe;
-    d.innerHTML = '<span class="catalog-item-name">' + item.nombre + '</span>' +
-      '<span class="catalog-item-type ' + (item.tipo === 'obligatoria' ? 'ob' : 're') + '">' + typeLabel + '</span>' +
-      '<button class="catalog-item-rm" onclick="removeCatalogItem(' + i + ')" title="Eliminar">×</button>';
-    el.appendChild(d);
-  });
-}
-
-function addCatalogItem() {
-  var input = document.getElementById('catalogInput');
-  var nombre = input.value.trim();
-  if (!nombre) { input.focus(); return; }
-  var tipo = document.getElementById('catalogType').value;
-  companyCatalog.push({ nombre: nombre, tipo: tipo });
-  saveCatalog();
-  input.value = '';
-  renderCatalog();
-}
-
-function importSpactiva() {
-  companyCatalog = SPACTIVA_CATALOG.slice();
-  saveCatalog();
-  renderCatalog();
-}
-
-function removeCatalogItem(i) {
-  companyCatalog.splice(i, 1);
-  saveCatalog();
-  renderCatalog();
-}
 
 async function analyze() {
   var t = TX[lang];
@@ -673,15 +581,12 @@ async function analyze() {
   var ctx = document.getElementById('ctx').value.trim();
   var respLang = lang === 'ca' ? 'catalán' : 'castellano';
 
-  var catalogText = '';
-  if (companyCatalog.length) {
-    catalogText = ' CATÁLOGO DE FORMACIONES DE LA EMPRESA: ' + companyCatalog.map(function(c) { return '"' + c.nombre + '" (' + c.tipo + ')'; }).join(', ') + '. Para cada riesgo, rellena el campo coberturaEmpresa: busca qué formación del catálogo cubre mejor ese riesgo y pon "cubierto" si hay cobertura completa, "parcial" si cubre parte, "ninguna" si no hay ninguna. Pon el nombre exacto del curso en el campo "formacion" (o null si ninguna). En "gap" describe qué falta si es parcial o ninguna.';
-  }
+  var catalogText = ' CATÁLOGO DE FORMACIONES DE SP ACTIVA: ' + SPACTIVA_CATALOG_TEXT + '. Para cada riesgo detectado, rellena el campo coberturaEmpresa: busca qué formación del catálogo cubre mejor ese riesgo y pon "cubierto" si hay cobertura completa, "parcial" si cubre parte, "ninguna" si no hay ninguna formación adecuada. Pon el nombre exacto del curso en el campo "formacion" (o null si ninguna). En "gap" describe brevemente qué falta si es parcial o ninguna.';
 
   var payload = {
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4000,
-    system: 'Eres un experto en Prevención de Riesgos Laborales (PRL) en España con profundo conocimiento de la LPRL (Ley 31/1995), sus reglamentos de desarrollo y los criterios del INSST. Respondes siempre en ' + respLang + '. Analiza todas las imágenes y responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin bloques de código: {"sector":"","resumen":"","riesgos":[{"nombre":"","descripcion":"","severidad":"alta|media|baja","formaciones":[{"nombre":"","tipo":"obligatoria|recomendada","justificacion":"","normativa":[]}],"coberturaEmpresa":{"estado":"cubierto|parcial|ninguna|sin-catalogo","formacion":"nombre del curso o null","gap":""}}],"saludMejoras":[],"ahorroEconomico":[],"ahorroEstimado":""}. Detecta TODOS los riesgos visibles. Cita normativa española real.' + catalogText,
+    system: 'Eres un experto en Prevención de Riesgos Laborales (PRL) en España con profundo conocimiento de la LPRL (Ley 31/1995), sus reglamentos de desarrollo y los criterios del INSST. Respondes siempre en ' + respLang + '. Analiza todas las imágenes y responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin bloques de código: {"sector":"","resumen":"","riesgos":[{"nombre":"","descripcion":"","severidad":"alta|media|baja","formaciones":[{"nombre":"","tipo":"obligatoria|recomendada","justificacion":"","normativa":[]}],"coberturaEmpresa":{"estado":"cubierto|parcial|ninguna","formacion":"nombre del curso o null","gap":""}}],"saludMejoras":[],"ahorroEconomico":[],"ahorroEstimado":""}. Detecta TODOS los riesgos visibles. Cita normativa española real.' + catalogText,
     messages: [{ role: 'user', content: [{ type: 'text', text: 'Sector: ' + sectorLabel + (ctx ? '. Contexto: ' + ctx : '') + '.' }].concat(imageContents) }]
   };
 
@@ -736,7 +641,7 @@ function buildRiskCard(risk, t) {
     body.innerHTML += '<div class="form-item' + (ob ? '' : ' rec') + '"><div class="ftag ' + (ob ? 'ob' : 're') + '">' + (ob ? t.OB : t.RE) + '</div><div class="fname">' + f.nombre + '</div><div class="fjust">' + f.justificacion + '</div><div class="fnorm"><span>' + t.norm + '</span>' + (f.normativa || []).map(function(n) { return '<span class="chip">' + n + '</span>'; }).join('') + '</div></div>';
   });
   // Company coverage block
-  if (companyCatalog.length && risk.coberturaEmpresa) {
+  if (risk.coberturaEmpresa) {
     var cov = risk.coberturaEmpresa;
     var covDiv = document.createElement('div');
     covDiv.className = 'company-coverage';
@@ -813,7 +718,6 @@ function resetApp() {
 }
 
 buildSectors();
-renderCatalog();
 </script>
 </body>
 </html>
