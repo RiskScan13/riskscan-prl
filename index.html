@@ -890,39 +890,168 @@ function exportPDF() {
   doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150);
   doc.text(new Date().toLocaleDateString('es-ES'), 172, 9.5);
   // Línea navy bajo header
-  doc.setFillColor(30,43,94); doc.rect(0,16,210,1.2,'F');
-  y = 24;
   var companyName = document.getElementById('companyName').value.trim();
-  if (companyName) { line('Empresa: ' + companyName, 11, true, [30,43,94]); y += 1; }
-  line(result.sector || '', 10, false, [100,100,100]);
-  y += 2; line(result.resumen || '', 10, false, [80,80,80]); y += 4;
-  result.riesgos.forEach(function(r) {
-    if (y > 260) { doc.addPage(); y = 15; }
-    doc.setFillColor(245,241,235); doc.rect(lm-2, y-4, pw+4, 8, 'F');
-    line(r.nombre + ' [' + (t.sev[r.severidad] || r.severidad.toUpperCase()) + ']', 11, true, [26,26,26]);
-    line(r.descripcion, 9, false, [120,120,120]);
-    r.formaciones.forEach(function(f) {
-      var ob = f.tipo === 'obligatoria';
-      line('• [' + (ob ? t.OB : t.RE) + '] ' + f.nombre, 9, true, ob ? [232,69,28] : [30,122,74], 3);
-      line(f.justificacion, 9, false, [80,80,80], 6);
-      line(t.norm + ' ' + (f.normativa || []).join(' | '), 8, false, [150,150,150], 6);
-    });
-    // Cobertura SP Activa
-    if (r.coberturaEmpresa) {
-      var cov = r.coberturaEmpresa;
-      var covColor = cov.estado === 'cubierto' ? [30,122,74] : cov.estado === 'parcial' ? [183,119,13] : [192,57,43];
-      var covLabel = cov.estado === 'cubierto' ? 'Cubierto por SP Activa' : cov.estado === 'parcial' ? 'Cobertura parcial SP Activa' : 'Sin formacion en SP Activa';
-      line('SP Activa: ' + covLabel, 9, true, covColor, 3);
-      if (cov.formacion) line('Curso: ' + cov.formacion, 9, false, [80,80,80], 6);
-      if (cov.gap) line('Brecha: ' + cov.gap, 9, false, [192,57,43], 6);
+  var dateStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
+  var sectorLabel = result.sector || '';
+  var pageH = 297, pageW = 210;
+  var totalPages = 1; // will update footer per page
+
+  function addPageHeader() {
+    doc.setFillColor(30,43,94); doc.rect(0,0,pageW,18,'F');
+    doc.setFillColor(232,69,28); doc.rect(0,18,pageW,2,'F');
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text('RiskScan PRL', lm, 12);
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text('spactiva.es', pageW - lm, 12, { align: 'right' });
+    y = 28;
+  }
+
+  function addPageFooter() {
+    doc.setFillColor(245,241,235); doc.rect(0, pageH-10, pageW, 10, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150);
+    doc.text('RiskScan PRL - SP Activa | Herramienta de apoyo tecnico. No sustituye la evaluacion profesional segun LPRL.', lm, pageH-4);
+    doc.text(dateStr, pageW-lm, pageH-4, { align: 'right' });
+  }
+
+  function checkPage(needed) {
+    if (y + (needed || 0) > pageH - 18) {
+      addPageFooter();
+      doc.addPage();
+      addPageHeader();
     }
-    y += 3;
+  }
+
+  function blockLine(txt, size, bold, color, indent) {
+    size = size || 10; bold = bold || false; color = color || [30,30,30]; indent = indent || 0;
+    doc.setFontSize(size); doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setTextColor(color[0], color[1], color[2]);
+    var lines = doc.splitTextToSize(String(txt), pw - indent);
+    lines.forEach(function(l) {
+      checkPage(size * 0.5);
+      doc.text(l, lm + indent, y); y += size * 0.45;
+    });
+    y += 1.5;
+  }
+
+  function sectionHeader(title, color) {
+    checkPage(12);
+    color = color || [30,43,94];
+    doc.setFillColor(color[0], color[1], color[2]);
+    doc.rect(lm-2, y-5, pw+4, 9, 'F');
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text(title, lm, y); y += 8;
+  }
+
+  // ── PORTADA ──────────────────────────────────────────────
+  doc.setFillColor(30,43,94); doc.rect(0,0,pageW,pageH,'F');
+  doc.setFillColor(232,69,28); doc.rect(0,pageH*0.55,pageW,2,'F');
+  // Logo
+  try { doc.addImage(document.getElementById('spactivaLogo').src,'JPEG',lm,18,38,13); } catch(e){}
+  // Title block
+  doc.setFontSize(32); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+  doc.text('RiskScan', lm, 80);
+  doc.setFontSize(32); doc.setFont('helvetica','normal');
+  doc.text('PRL', lm + 62, 80);
+  doc.setFontSize(13); doc.setFont('helvetica','normal'); doc.setTextColor(200,205,220);
+  doc.text('Informe de Analisis de Riesgos Laborales', lm, 92);
+  // Company & sector
+  if (companyName) {
+    doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text(companyName, lm, 120);
+  }
+  doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(180,190,210);
+  doc.text('Sector: ' + sectorLabel, lm, 132);
+  doc.text('Fecha: ' + dateStr, lm, 140);
+  // Stats strip
+  var obSet = new Set(), reSet = new Set();
+  result.riesgos.forEach(function(r) { r.formaciones.forEach(function(f) { if(f.tipo==='obligatoria') obSet.add(f.nombre); else reSet.add(f.nombre); }); });
+  var covCount = result.riesgos.filter(function(r){ return r.coberturaEmpresa && r.coberturaEmpresa.estado==='cubierto'; }).length;
+  doc.setFillColor(20,32,80); doc.rect(0, pageH*0.62, pageW, 38, 'F');
+  var stats = [
+    { n: result.riesgos.length, l: 'Riesgos', c: [232,69,28] },
+    { n: obSet.size, l: 'Form. obligatorias', c: [232,140,28] },
+    { n: reSet.size, l: 'Form. recomendadas', c: [30,180,100] },
+    { n: covCount, l: 'Cubiertos SP Activa', c: [80,160,240] }
+  ];
+  stats.forEach(function(s, i) {
+    var sx = lm + i * 46;
+    doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(s.c[0],s.c[1],s.c[2]);
+    doc.text(String(s.n), sx, pageH*0.62 + 14);
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(160,170,190);
+    doc.text(s.l, sx, pageH*0.62 + 22);
   });
-  // Mejoras de salud — sin emojis
+  // Footer portada
+  doc.setFontSize(7); doc.setTextColor(100,110,130);
+  doc.text('Generado por RiskScan PRL - SP Activa | spactiva.es', pageW/2, pageH-8, { align: 'center' });
+
+  // ── PÁGINA 2+: CONTENIDO ────────────────────────────────
+  doc.addPage();
+  addPageHeader();
+
+  // Resumen ejecutivo
+  sectionHeader('RESUMEN EJECUTIVO');
+  blockLine(result.resumen || '', 10, false, [60,60,60]);
   y += 4;
-  line('Mejoras de salud para el trabajador', 11, true, [30,122,74]);
-  (result.saludMejoras || []).forEach(function(m) { line('• ' + m, 9, false, [60,60,60], 3); });
-  doc.save('RiskScan_PRL_Informe.pdf');
+
+  // Riesgos
+  sectionHeader('RIESGOS DETECTADOS Y FORMACIONES');
+  result.riesgos.forEach(function(r, idx) {
+    checkPage(30);
+    // Risk card background
+    var cardH = 18 + (r.formaciones.length * 16) + (r.coberturaEmpresa ? 12 : 0);
+    doc.setFillColor(250,248,245); doc.roundedRect(lm-2, y-5, pw+4, cardH, 2, 2, 'F');
+    // Severity bar
+    var sevC = r.severidad === 'alta' ? [232,69,28] : r.severidad === 'media' ? [232,160,28] : [30,180,100];
+    doc.setFillColor(sevC[0],sevC[1],sevC[2]); doc.rect(lm-2, y-5, 3, cardH, 'F');
+    // Risk name + severity badge
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
+    doc.text((idx+1) + '. ' + r.nombre, lm+4, y);
+    var sevTxt = (t.sev[r.severidad] || r.severidad.toUpperCase());
+    doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(sevC[0],sevC[1],sevC[2]);
+    doc.text(sevTxt, pageW-lm, y, { align: 'right' });
+    y += 5;
+    blockLine(r.descripcion, 8.5, false, [100,100,100], 4);
+    // Formaciones
+    r.formaciones.forEach(function(f) {
+      checkPage(16);
+      var ob = f.tipo === 'obligatoria';
+      var fc = ob ? [232,69,28] : [30,150,80];
+      doc.setFillColor(fc[0],fc[1],fc[2]); doc.roundedRect(lm+4, y-3.5, ob ? 22 : 24, 5.5, 1, 1, 'F');
+      doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+      doc.text(ob ? t.OB : t.RE, lm+5, y); y -= 0.5;
+      doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+      doc.text(f.nombre, lm + (ob ? 28 : 30), y + 0.5);
+      y += 5.5;
+      blockLine(f.justificacion, 7.5, false, [120,120,120], 8);
+      if (f.normativa && f.normativa.length) {
+        blockLine(t.norm + ' ' + f.normativa.join(' · '), 7, false, [160,160,160], 8);
+      }
+    });
+    // SP Activa coverage
+    if (r.coberturaEmpresa) {
+      checkPage(12);
+      var cov = r.coberturaEmpresa;
+      var covBg = cov.estado === 'cubierto' ? [230,248,238] : cov.estado === 'parcial' ? [255,248,220] : [253,232,228];
+      var covFg = cov.estado === 'cubierto' ? [20,110,60] : cov.estado === 'parcial' ? [150,100,0] : [180,40,30];
+      var covTxt = cov.estado === 'cubierto' ? 'SP Activa: Cubierto' : cov.estado === 'parcial' ? 'SP Activa: Cobertura parcial' : 'SP Activa: Sin formacion disponible';
+      doc.setFillColor(covBg[0],covBg[1],covBg[2]); doc.roundedRect(lm+4, y-3, pw-8, 9, 1.5, 1.5, 'F');
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(covFg[0],covFg[1],covFg[2]);
+      doc.text(covTxt, lm+7, y+1);
+      if (cov.formacion) { doc.setFont('helvetica','normal'); doc.text('  Curso: ' + cov.formacion, lm+7, y+6); }
+      y += cov.gap ? 13 : 9;
+      if (cov.gap) blockLine('Brecha: ' + cov.gap, 7.5, false, [180,40,30], 8);
+    }
+    y += 5;
+  });
+
+  // Mejoras de salud
+  if (result.saludMejoras && result.saludMejoras.length) {
+    checkPage(20);
+    sectionHeader('MEJORAS DE SALUD RECOMENDADAS', [30,122,74]);
+    result.saludMejoras.forEach(function(m) { blockLine('• ' + m, 9, false, [60,60,60], 3); });
+  }
+
+  addPageFooter();
+  doc.save('RiskScan_PRL_Informe_' + (companyName || 'Empresa').replace(/\s+/g,'_') + '.pdf');
 }
 
 function resetApp() {
