@@ -985,8 +985,11 @@ function exportPDF() {
   // ── PORTADA ──────────────────────────────────────────────
   doc.setFillColor(30,43,94); doc.rect(0,0,pageW,pageH,'F');
   doc.setFillColor(232,69,28); doc.rect(0,pageH*0.55,pageW,2,'F');
-  // Logo
-  try { doc.addImage(document.getElementById('spactivaLogo').src,'JPEG',lm,18,38,13); } catch(e){}
+  // Logo con caja blanca redondeada
+  try {
+    doc.setFillColor(255,255,255); doc.roundedRect(lm-3, 15, 46, 19, 3, 3, 'F');
+    doc.addImage(document.getElementById('spactivaLogo').src,'JPEG',lm,17,40,15);
+  } catch(e){}
   // Title block
   doc.setFontSize(32); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
   doc.text('RiskScan', lm, 80);
