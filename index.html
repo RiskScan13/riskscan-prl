@@ -989,26 +989,30 @@ function exportPDF() {
   // ── PORTADA ──────────────────────────────────────────────
   doc.setFillColor(30,43,94); doc.rect(0,0,pageW,pageH,'F');
   doc.setFillColor(232,69,28); doc.rect(0,pageH*0.55,pageW,2,'F');
-  // Logo en texto sobre portada azul
-  doc.setFontSize(15); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-  doc.text('SP', lm, 27);
-  doc.setFontSize(15); doc.setFont('helvetica','normal'); doc.setTextColor(232,69,28);
-  doc.text('Activa', lm + 11, 27);
+  // Franja blanca superior con logo
+  doc.setFillColor(255,255,255); doc.rect(0,0,pageW,28,'F');
+  doc.setFillColor(232,69,28); doc.rect(0,28,pageW,3,'F');
+  try { doc.addImage(document.getElementById('spactivaLogo').src,'JPEG',lm,4,40,20); } catch(e){
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(30,43,94);
+    doc.text('SP Activa', lm, 18);
+  }
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150);
+  doc.text('spactiva.es', pageW-lm, 18, { align: 'right' });
   // Title block
   doc.setFontSize(32); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-  doc.text('RiskScan', lm, 80);
+  doc.text('RiskScan', lm, 90);
   doc.setFontSize(32); doc.setFont('helvetica','normal');
-  doc.text('PRL', lm + 62, 80);
+  doc.text('PRL', lm + 62, 90);
   doc.setFontSize(13); doc.setFont('helvetica','normal'); doc.setTextColor(200,205,220);
-  doc.text('Informe de Analisis de Riesgos Laborales', lm, 92);
+  doc.text('Informe de Analisis de Riesgos Laborales', lm, 102);
   // Company & sector
   if (companyName) {
     doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-    doc.text(companyName, lm, 120);
+    doc.text(companyName, lm, 130);
   }
   doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(180,190,210);
-  doc.text('Sector: ' + sectorLabel, lm, 132);
-  doc.text('Fecha: ' + dateStr, lm, 140);
+  doc.text('Sector: ' + sectorLabel, lm, 142);
+  doc.text('Fecha: ' + dateStr, lm, 150);
   // Stats strip
   var obSet = new Set(), reSet = new Set();
   result.riesgos.forEach(function(r) { r.formaciones.forEach(function(f) { if(f.tipo==='obligatoria') obSet.add(f.nombre); else reSet.add(f.nombre); }); });
