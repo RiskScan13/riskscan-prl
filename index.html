@@ -940,12 +940,12 @@ function exportPDF() {
   function addPageHeader() {
     doc.setFillColor(30,43,94); doc.rect(0,0,pageW,18,'F');
     doc.setFillColor(232,69,28); doc.rect(0,18,pageW,2,'F');
-    try { doc.addImage(document.getElementById('spactivaLogo').src,'JPEG',lm,2,28,14); } catch(e){
-      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-      doc.text('SP Activa', lm, 12);
-    }
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+    doc.text('SP', lm, 12);
+    doc.setFont('helvetica','normal'); doc.setTextColor(232,69,28);
+    doc.text('Activa', lm + 9, 12);
     doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-    doc.text('RiskScan PRL', pageW/2, 11, { align: 'center' });
+    doc.text('RiskScan PRL', pageW/2, 12, { align: 'center' });
     doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(200,210,230);
     doc.text('spactiva.es', pageW - lm, 12, { align: 'right' });
     y = 28;
