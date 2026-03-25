@@ -104,6 +104,20 @@ textarea:focus { border-color: #e8451c; }
 .new-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; padding: 9px 18px; border: 1.5px solid #1e2b5e; border-radius: 8px; background: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: all .15s; }
 .new-btn:hover { background: #1e2b5e; color: #fff; }
 footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; border-top: 1px solid #e5e0d8; margin-top: 30px; }
+/* Acciones correctivas */
+#actionsContainer { margin-top: 4px; }
+.action-card { background: #fff; border: 1px solid #e5e0d8; border-left: 4px solid #e8451c; border-radius: 10px; margin-bottom: 9px; overflow: hidden; }
+.action-head { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; cursor: pointer; }
+.action-body { display: none; padding: 0 14px 12px; }
+.action-body.open { display: block; }
+.action-cat { font-size: 9px; font-weight: 700; letter-spacing: .07em; padding: 2px 8px; border-radius: 3px; background: #fde8e4; color: #c0392b; white-space: nowrap; margin-top: 2px; }
+.action-desc { font-size: 12px; font-weight: 700; flex: 1; }
+.action-urg { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 3px; white-space: nowrap; }
+.action-urg.inmediata { background: #fde8e4; color: #c0392b; }
+.action-urg.corto { background: #fff8e1; color: #b7770d; }
+.action-urg.medio { background: #e8f5ee; color: #1e7a4a; }
+.action-accion { font-size: 12px; color: #444; margin-bottom: 6px; line-height: 1.5; }
+.action-norm { font-size: 11px; color: #999; }
 /* Auth screen */
 #authScreen { position: fixed; inset: 0; background: #f4f1ea; z-index: 999; display: flex; align-items: center; justify-content: center; padding: 20px; }
 #authScreen.hidden { display: none; }
@@ -255,6 +269,7 @@ footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; border
     <div class="stats" id="statsRow"></div>
     <p class="summary" id="summaryTxt"></p>
     <div id="riskContainer"></div>
+    <div id="actionsContainer"></div>
     <div class="benefits" id="benefits"></div>
     <button class="new-btn" onclick="resetApp()">↩ <span id="tNew">Nuevo análisis</span></button>
   </div>
@@ -408,6 +423,8 @@ var TX = {
     videoTooBig: 'El vídeo "{name}" es demasiado grande (máx. 500 MB). Usa un vídeo más corto o comprimido.',
     errApi: 'Error en el análisis', tRes: 'Informe de Riesgos', tPdf: 'Exportar PDF', tNew: 'Nuevo análisis',
     secOb: '🔴 Formaciones Obligatorias por Normativa', secRe: '🟢 Formaciones Recomendadas',
+    secActions: '⚠️ Acciones Correctivas Inmediatas',
+    urgInmediata: 'INMEDIATA', urgCorto: 'CORTO PLAZO', urgMedio: 'MEDIO PLAZO',
     OB: 'OBLIGATORIA', RE: 'RECOMENDADA', norm: 'Normativa:',
     health: '💚 Mejoras de salud para el trabajador', saving: '💰 Ahorro económico potencial',
     sRisk: 'Riesgos', sOb: 'Oblig.', sRe: 'Recom.', sSav: 'Ahorro/año',
@@ -433,6 +450,8 @@ var TX = {
     videoTooBig: 'El vídeo "{name}" és massa gran (màx. 500 MB). Usa un vídeo més curt o comprimit.',
     errApi: "Error en l'anàlisi", tRes: 'Informe de Riscos', tPdf: 'Exportar PDF', tNew: 'Nova anàlisi',
     secOb: '🔴 Formacions Obligatòries per Normativa', secRe: '🟢 Formacions Recomanades',
+    secActions: '⚠️ Accions Correctives Immediates',
+    urgInmediata: 'IMMEDIATA', urgCorto: 'CURT TERMINI', urgMedio: 'MEDI TERMINI',
     OB: 'OBLIGATÒRIA', RE: 'RECOMANADA', norm: 'Normativa:',
     health: '💚 Millores de salut per al treballador', saving: '💰 Estalvi econòmic potencial',
     sRisk: 'Riscos', sOb: 'Oblig.', sRe: 'Recom.', sSav: 'Estalvi/any',
@@ -794,7 +813,7 @@ async function analyze() {
   var payload = {
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4000,
-    system: 'Eres un experto en Prevención de Riesgos Laborales (PRL) en España con profundo conocimiento de la LPRL (Ley 31/1995), sus reglamentos de desarrollo y los criterios del INSST. Respondes siempre en ' + respLang + '. Analiza todas las imágenes y responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin bloques de código: {"sector":"","resumen":"","riesgos":[{"nombre":"","descripcion":"","severidad":"alta|media|baja","formaciones":[{"nombre":"","tipo":"obligatoria|recomendada","justificacion":"","normativa":[]}],"coberturaEmpresa":{"estado":"cubierto|parcial|ninguna","formacion":"nombre del curso o null","gap":""}}],"saludMejoras":[],"ahorroEconomico":[],"ahorroEstimado":""}. Detecta TODOS los riesgos visibles. Cita normativa española real.' + catalogText,
+    system: 'Eres un experto en Prevención de Riesgos Laborales (PRL) en España con profundo conocimiento de la LPRL (Ley 31/1995), sus reglamentos de desarrollo y los criterios del INSST. Respondes siempre en ' + respLang + '. Analiza todas las imágenes y responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin bloques de código: {"sector":"","resumen":"","riesgos":[{"nombre":"","descripcion":"","severidad":"alta|media|baja","formaciones":[{"nombre":"","tipo":"obligatoria|recomendada","justificacion":"","normativa":[]}],"coberturaEmpresa":{"estado":"cubierto|parcial|ninguna","formacion":"nombre del curso o null","gap":""}}],"incumplimientos":[{"descripcion":"descripcion del incumplimiento visible","categoria":"EPI|Señalizacion|Orden y limpieza|Instalaciones|Procedimientos|Ergonomia|Otro","urgencia":"inmediata|corto_plazo|medio_plazo","accion":"que debe hacer la empresa para corregirlo","normativa":[]}],"saludMejoras":[],"ahorroEconomico":[],"ahorroEstimado":""}. Detecta TODOS los riesgos visibles y TODOS los incumplimientos observables: EPIs no usados, señalizacion incorrecta o ausente, orden y limpieza deficiente, posturas incorrectas, equipos en mal estado, procedimientos inadecuados, etc. Cita normativa española real.' + catalogText,
     messages: [{ role: 'user', content: [{ type: 'text', text: 'Sector: ' + sectorLabel + (ctx ? '. Contexto: ' + ctx : '') + '.' }].concat(imageContents) }]
   };
 
@@ -836,8 +855,30 @@ function renderResults(data) {
   }
   addSection(TX[lang].secOb, obR);
   addSection(TX[lang].secRe, reR);
+
+  // Acciones correctivas
+  var ac = document.getElementById('actionsContainer'); ac.innerHTML = '';
+  if (data.incumplimientos && data.incumplimientos.length) {
+    var ah = document.createElement('div'); ah.className = 'sec-title'; ah.textContent = TX[lang].secActions; ac.appendChild(ah);
+    data.incumplimientos.forEach(function(inc) { ac.appendChild(buildActionCard(inc, TX[lang])); });
+  }
+
   document.getElementById('benefits').innerHTML =
     '<div class="ben health" style="grid-column:1/-1"><div class="ben-title">' + TX[lang].health + '</div><ul>' + (data.saludMejoras || []).map(function(m) { return '<li>' + m + '</li>'; }).join('') + '</ul></div>';
+}
+
+function buildActionCard(inc, t) {
+  var urgMap = { inmediata: { cls: 'inmediata', lbl: t.urgInmediata }, corto_plazo: { cls: 'corto', lbl: t.urgCorto }, medio_plazo: { cls: 'medio', lbl: t.urgMedio } };
+  var urg = urgMap[inc.urgencia] || { cls: 'corto', lbl: inc.urgencia };
+  var div = document.createElement('div'); div.className = 'action-card';
+  var head = document.createElement('div'); head.className = 'action-head';
+  head.innerHTML = '<div style="flex:1"><div class="action-desc">' + inc.descripcion + '</div><span class="action-cat">' + (inc.categoria || '') + '</span></div>' +
+    '<span class="action-urg ' + urg.cls + '">' + urg.lbl + '</span><span class="chev" style="margin-left:6px">▼</span>';
+  var body = document.createElement('div'); body.className = 'action-body';
+  body.innerHTML = '<div class="action-accion">' + inc.accion + '</div>' +
+    (inc.normativa && inc.normativa.length ? '<div class="action-norm">' + t.norm + ' ' + inc.normativa.map(function(n){ return '<span class="chip">'+n+'</span>'; }).join('') + '</div>' : '');
+  head.onclick = function() { var open = body.classList.toggle('open'); head.querySelector('.chev').classList.toggle('open', open); };
+  div.appendChild(head); div.appendChild(body); return div;
 }
 
 function buildRiskCard(risk, t) {
@@ -1042,6 +1083,28 @@ function exportPDF() {
     }
     y += 5;
   });
+
+  // Acciones correctivas
+  if (result.incumplimientos && result.incumplimientos.length) {
+    checkPage(20);
+    sectionHeader('ACCIONES CORRECTIVAS', [180,40,30]);
+    result.incumplimientos.forEach(function(inc, idx) {
+      checkPage(20);
+      var urgColors = { inmediata: [192,57,43], corto_plazo: [183,119,13], medio_plazo: [30,122,74] };
+      var urgLabels = { inmediata: 'INMEDIATA', corto_plazo: 'CORTO PLAZO', medio_plazo: 'MEDIO PLAZO' };
+      var uc = urgColors[inc.urgencia] || [100,100,100];
+      doc.setFillColor(250,248,245); doc.roundedRect(lm-2, y-5, pw+4, 5, 1, 1, 'F');
+      doc.setFillColor(uc[0],uc[1],uc[2]); doc.rect(lm-2, y-5, 3, 5, 'F');
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
+      doc.text((idx+1) + '. ' + inc.descripcion, lm+4, y-1);
+      if (inc.categoria) { doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150); doc.text(inc.categoria, pageW-lm, y-1, { align: 'right' }); }
+      y += 3;
+      if (inc.urgencia) { doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(uc[0],uc[1],uc[2]); doc.text('Urgencia: ' + (urgLabels[inc.urgencia] || inc.urgencia), lm+4, y); y += 4; }
+      blockLine('Accion: ' + inc.accion, 8.5, false, [60,60,60], 4);
+      if (inc.normativa && inc.normativa.length) blockLine(t.norm + ' ' + inc.normativa.join(' · '), 7.5, false, [150,150,150], 4);
+      y += 2;
+    });
+  }
 
   // Mejoras de salud
   if (result.saludMejoras && result.saludMejoras.length) {
