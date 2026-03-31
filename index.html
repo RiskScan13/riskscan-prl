@@ -278,7 +278,7 @@ footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; border
   <p id="footerTxt">RiskScan PRL — Herramienta de apoyo técnico. No sustituye la evaluación profesional según LPRL.</p>
 </footer>
 <script>
-var lang = 'es', sector = null, files = [], result = null;
+var lang = 'es', sector = null, files = [], result = null, analysisImageData = [];
 // Supabase auth
 var SUPA_URL = 'https://ulqcekqrolwbcvxflbqk.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVscWNla3Fyb2x3YmN2eGZsYnFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNTgwNDQsImV4cCI6MjA4OTkzNDA0NH0.TTtNGTSC6uCFuf4Z6WWnglVjVXPjr1b-rJnUg_WyXuk';
@@ -426,8 +426,8 @@ var TX = {
     secActions: '⚠️ Acciones Correctivas Inmediatas',
     urgInmediata: 'INMEDIATA', urgCorto: 'CORTO PLAZO', urgMedio: 'MEDIO PLAZO',
     OB: 'OBLIGATORIA', RE: 'RECOMENDADA', norm: 'Normativa:',
-    health: '💚 Mejoras de salud para el trabajador', saving: '💰 Ahorro económico potencial',
-    sRisk: 'Riesgos', sOb: 'Oblig.', sRe: 'Recom.', sSav: 'Ahorro/año',
+    health: '💚 Mejoras de salud para el trabajador',
+    sRisk: 'Riesgos', sOb: 'Oblig.', sRe: 'Recom.', sInc: 'Incumpl.',
     sev: { alta: 'ALTA', media: 'MEDIA', baja: 'BAJA' },
     ctx: 'Ej: almacén con carretillas elevadoras, turnos nocturnos...',
     tHist: 'Historial de análisis', histEmpty: 'No hay análisis guardados.',
@@ -453,8 +453,8 @@ var TX = {
     secActions: '⚠️ Accions Correctives Immediates',
     urgInmediata: 'IMMEDIATA', urgCorto: 'CURT TERMINI', urgMedio: 'MEDI TERMINI',
     OB: 'OBLIGATÒRIA', RE: 'RECOMANADA', norm: 'Normativa:',
-    health: '💚 Millores de salut per al treballador', saving: '💰 Estalvi econòmic potencial',
-    sRisk: 'Riscos', sOb: 'Oblig.', sRe: 'Recom.', sSav: 'Estalvi/any',
+    health: '💚 Millores de salut per al treballador',
+    sRisk: 'Riscos', sOb: 'Oblig.', sRe: 'Recom.', sInc: 'Incumpl.',
     sev: { alta: 'ALTA', media: 'MITJA', baja: 'BAIXA' },
     ctx: 'Ex: magatzem amb carretons elevadors, torns nocturns...',
     tHist: "Historial d'anàlisis", histEmpty: 'No hi ha anàlisis desades.',
@@ -760,6 +760,15 @@ function setProgress(pct, label) {
 </script>
 <script>
 
+function getImgDimensions(b64, mediaType) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() { resolve({ w: img.naturalWidth, h: img.naturalHeight }); };
+    img.onerror = function() { resolve({ w: 0, h: 0 }); };
+    img.src = 'data:' + mediaType + ';base64,' + b64;
+  });
+}
+
 async function analyze() {
   var t = TX[lang];
   var errEl = document.getElementById('errBox');
@@ -773,6 +782,7 @@ async function analyze() {
 
   var loaderMsg = document.getElementById('loaderMsg');
   var imageContents = [];
+  analysisImageData = [];
 
   for (var i = 0; i < files.length; i++) {
     var entry = files[i];
@@ -781,23 +791,29 @@ async function analyze() {
       setProgress(0, '');
       var numFrames = 5;
       var frames = await extractFrames(entry.file, numFrames);
-      frames.forEach(function(b64, j) {
+      for (var j = 0; j < frames.length; j++) {
+        var b64 = frames[j];
         var pct = Math.round(((j + 1) / frames.length) * 100);
         var label = t.frameProgress.replace('{n}', j+1).replace('{total}', frames.length);
         setProgress(pct, label);
-        imageContents.push({ type: 'text', text: 'Vídeo "' + entry.file.name + '" — Fotograma ' + (j+1) + ' de ' + frames.length + ':' });
+        var imgIdx = analysisImageData.length;
+        imageContents.push({ type: 'text', text: '[IMAGEN_' + imgIdx + '] Vídeo "' + entry.file.name + '" — Fotograma ' + (j+1) + ' de ' + frames.length + ':' });
         imageContents.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } });
-      });
+        var vDims = await getImgDimensions(b64, 'image/jpeg');
+        analysisImageData.push({ data: b64, mediaType: 'image/jpeg', w: vDims.w, h: vDims.h });
+      }
       if (frames.length === 0) {
-        // Fallback: no frames extracted, note it as context
         imageContents.push({ type: 'text', text: 'Vídeo adjunto: "' + entry.file.name + '" (no se pudieron extraer fotogramas — analiza en base al contexto y sector).' });
       }
       setProgress(-1);
     } else {
       loaderMsg.textContent = t.loadAnalyze;
       var b64 = await fileToBase64(entry.file);
-      imageContents.push({ type: 'text', text: 'Imagen: ' + entry.file.name });
+      var imgIdx = analysisImageData.length;
+      imageContents.push({ type: 'text', text: '[IMAGEN_' + imgIdx + '] Imagen: ' + entry.file.name });
       imageContents.push({ type: 'image', source: { type: 'base64', media_type: entry.file.type || 'image/jpeg', data: b64 } });
+      var imgDims = await getImgDimensions(b64, entry.file.type || 'image/jpeg');
+      analysisImageData.push({ data: b64, mediaType: entry.file.type || 'image/jpeg', w: imgDims.w, h: imgDims.h });
     }
   }
 
@@ -812,8 +828,8 @@ async function analyze() {
 
   var payload = {
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000,
-    system: 'Eres un experto en Prevención de Riesgos Laborales (PRL) en España con profundo conocimiento de la LPRL (Ley 31/1995), sus reglamentos de desarrollo y los criterios del INSST. Respondes siempre en ' + respLang + '. Analiza todas las imágenes y responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin bloques de código: {"sector":"","resumen":"","riesgos":[{"nombre":"","descripcion":"","severidad":"alta|media|baja","formaciones":[{"nombre":"","tipo":"obligatoria|recomendada","justificacion":"","normativa":[]}],"coberturaEmpresa":{"estado":"cubierto|parcial|ninguna","formacion":"nombre del curso o null","gap":""}}],"incumplimientos":[{"descripcion":"descripcion del incumplimiento visible","categoria":"EPI|Señalizacion|Orden y limpieza|Instalaciones|Procedimientos|Ergonomia|Otro","urgencia":"inmediata|corto_plazo|medio_plazo","accion":"que debe hacer la empresa para corregirlo","normativa":[]}],"saludMejoras":[],"ahorroEconomico":[],"ahorroEstimado":""}. Detecta TODOS los riesgos visibles y TODOS los incumplimientos observables: EPIs no usados, señalizacion incorrecta o ausente, orden y limpieza deficiente, posturas incorrectas, equipos en mal estado, procedimientos inadecuados, etc. Cita normativa española real.' + catalogText,
+    max_tokens: 8000,
+    system: 'Eres un experto en Prevención de Riesgos Laborales (PRL) en España con profundo conocimiento de la LPRL (Ley 31/1995), sus reglamentos de desarrollo y los criterios del INSST. Respondes siempre en ' + respLang + '. Analiza todas las imágenes y responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin bloques de código: {"sector":"","resumen":"","riesgos":[{"nombre":"","descripcion":"descripcion detallada de 2-3 frases explicando el riesgo su manifestacion y consecuencias","severidad":"alta|media|baja","imagenReferencia":-1,"causas":["causa principal","causa secundaria"],"consecuencias":["consecuencia grave","consecuencia menor"],"medidasPreventivas":["medida 1","medida 2","medida 3"],"formaciones":[{"nombre":"nombre exacto del curso del catalogo SP Activa","tipo":"obligatoria|recomendada","justificacion":"por que este curso cubre especificamente este riesgo","normativa":["RD 000/0000 art. X"]}],"coberturaEmpresa":{"estado":"cubierto|parcial|ninguna","formacion":"nombre exacto del curso o null","gap":"que falta si es parcial o ninguna"}}],"incumplimientos":[{"descripcion":"descripcion concreta del incumplimiento observable","categoria":"EPI|Señalizacion|Orden y limpieza|Instalaciones|Procedimientos|Ergonomia|Otro","urgencia":"inmediata|corto_plazo|medio_plazo","accion":"accion correctiva concreta que debe ejecutar la empresa","normativa":["RD 000/0000 art. X"]}],"saludMejoras":["mejora 1","mejora 2"]}. INSTRUCCIONES CRITICAS: (1) Detecta MINIMO 10 riesgos. Combina lo visible en las imagenes con riesgos LATENTES propios del sector aunque no sean directamente visibles: ergonomicos (posturas, manipulacion de cargas, movimientos repetitivos), psicosociales (estres, turnicidad, carga mental), quimicos (productos, polvo, gases), biologicos, electricos, incendio y explosion, caidas a distinto/mismo nivel, atrapamientos, golpes con objetos, ruido, vibraciones, iluminacion, temperatura. (2) Para las formaciones usa UNICAMENTE los nombres exactos del catalogo de SP Activa proporcionado — no inventes nombres. Si un riesgo no tiene cobertura exacta usa el curso mas relacionado y marca estado parcial. (3) Cada descripcion debe tener 2-3 frases: que es el riesgo, como se genera en este contexto concreto, que lesion o dano puede causar. (4) Las medidasPreventivas deben ser especificas y accionables (minimo 3 por riesgo). (5) Detecta TODOS los incumplimientos observables. (6) Cita siempre normativa espanola real y vigente con articulo especifico. (7) En el campo imagenReferencia de cada riesgo pon el indice numerico de la imagen donde se ve ese riesgo (el numero que aparece en [IMAGEN_N] en las etiquetas). Si el riesgo es latente y no se ve en ninguna imagen usa -1.' + catalogText,
     messages: [{ role: 'user', content: [{ type: 'text', text: 'Sector: ' + sectorLabel + (ctx ? '. Contexto: ' + ctx : '') + '.' }].concat(imageContents) }]
   };
 
@@ -843,7 +859,8 @@ function renderResults(data) {
   document.getElementById('statsRow').innerHTML =
     '<div class="stat"><div class="n" style="color:#e8451c">' + data.riesgos.length + '</div><div class="l">' + TX[lang].sRisk + '</div></div>' +
     '<div class="stat"><div class="n" style="color:#b7770d">' + obSet.size + '</div><div class="l">' + TX[lang].sOb + '</div></div>' +
-    '<div class="stat"><div class="n" style="color:#1e7a4a">' + reSet.size + '</div><div class="l">' + TX[lang].sRe + '</div></div>';
+    '<div class="stat"><div class="n" style="color:#1e7a4a">' + reSet.size + '</div><div class="l">' + TX[lang].sRe + '</div></div>' +
+    '<div class="stat"><div class="n" style="color:#e8451c">' + ((data.incumplimientos || []).length) + '</div><div class="l">' + TX[lang].sInc + '</div></div>';
   document.getElementById('summaryTxt').textContent = data.resumen || '';
   var c = document.getElementById('riskContainer'); c.innerHTML = '';
   var obR = data.riesgos.filter(function(r) { return r.formaciones.some(function(f) { return f.tipo === 'obligatoria'; }); });
@@ -886,6 +903,28 @@ function buildRiskCard(risk, t) {
   var head = document.createElement('div'); head.className = 'risk-head';
   head.innerHTML = '<div style="flex:1"><div class="rname">' + risk.nombre + '</div><div class="rdesc">' + risk.descripcion + '</div></div><div style="display:flex;align-items:center;gap:7px;flex-shrink:0"><span class="sev sev-' + risk.severidad + '">' + (t.sev[risk.severidad] || risk.severidad.toUpperCase()) + '</span><span class="chev">▼</span></div>';
   var body = document.createElement('div'); body.className = 'risk-body';
+  // Causas y consecuencias
+  if ((risk.causas && risk.causas.length) || (risk.consecuencias && risk.consecuencias.length)) {
+    var ccDiv = document.createElement('div');
+    ccDiv.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;font-size:11px;';
+    var causasHtml = '', consHtml = '';
+    if (risk.causas && risk.causas.length) {
+      causasHtml = '<div style="background:#fdf3f1;border-radius:6px;padding:8px"><div style="font-weight:700;color:#c0392b;margin-bottom:4px;font-size:9px;letter-spacing:.08em">CAUSAS</div><ul style="margin:0;padding-left:14px">' + risk.causas.map(function(c){return '<li style="margin-bottom:2px">'+c+'</li>';}).join('') + '</ul></div>';
+    }
+    if (risk.consecuencias && risk.consecuencias.length) {
+      consHtml = '<div style="background:#fff8e1;border-radius:6px;padding:8px"><div style="font-weight:700;color:#b7770d;margin-bottom:4px;font-size:9px;letter-spacing:.08em">CONSECUENCIAS</div><ul style="margin:0;padding-left:14px">' + risk.consecuencias.map(function(c){return '<li style="margin-bottom:2px">'+c+'</li>';}).join('') + '</ul></div>';
+    }
+    ccDiv.innerHTML = causasHtml + consHtml;
+    body.appendChild(ccDiv);
+  }
+  // Medidas preventivas
+  if (risk.medidasPreventivas && risk.medidasPreventivas.length) {
+    var mpDiv = document.createElement('div');
+    mpDiv.style.cssText = 'background:#e8f5ee;border-radius:6px;padding:8px;margin-bottom:10px;font-size:11px;';
+    mpDiv.innerHTML = '<div style="font-weight:700;color:#1e7a4a;margin-bottom:4px;font-size:9px;letter-spacing:.08em">MEDIDAS PREVENTIVAS</div><ul style="margin:0;padding-left:14px">' + risk.medidasPreventivas.map(function(m){return '<li style="margin-bottom:2px">'+m+'</li>';}).join('') + '</ul>';
+    body.appendChild(mpDiv);
+  }
+  // Formaciones
   risk.formaciones.forEach(function(f) {
     var ob = f.tipo === 'obligatoria';
     body.innerHTML += '<div class="form-item' + (ob ? '' : ' rec') + '"><div class="ftag ' + (ob ? 'ob' : 're') + '">' + (ob ? t.OB : t.RE) + '</div><div class="fname">' + f.nombre + '</div><div class="fjust">' + f.justificacion + '</div><div class="fnorm"><span>' + t.norm + '</span>' + (f.normativa || []).map(function(n) { return '<span class="chip">' + n + '</span>'; }).join('') + '</div></div>';
@@ -1045,54 +1084,233 @@ function exportPDF() {
   y += 4;
 
   // Riesgos
+  // Helper: add AcroForm text field pre-filled with content (fully editable)
+  // Standard content font size used consistently across all risk fields
+  var CONTENT_FS = 9;
+
+  function addEditField(fieldName, fx, fy, fw, fh, multiline, prefill, fontSize) {
+    fontSize = fontSize || CONTENT_FS;
+    doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+    doc.roundedRect(fx, fy, fw, fh, 1, 1, 'FD');
+    try {
+      var AcroFormTextField = window.jspdf && window.jspdf.AcroFormTextField;
+      if (typeof AcroFormTextField === 'function') {
+        var field = new AcroFormTextField();
+        field.fieldName = fieldName;
+        field.x = fx; field.y = fy; field.width = fw; field.height = fh;
+        if (multiline) field.multiline = true;
+        field.fontSize = fontSize;
+        field.maxFontSize = fontSize; // prevent auto-shrink
+        if (prefill) { field.value = String(prefill); field.defaultValue = String(prefill); }
+        doc.addField(field);
+        return;
+      }
+    } catch(e) {}
+    // Fallback: draw text manually
+    if (prefill) {
+      doc.setFontSize(fontSize); doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40);
+      var lines = doc.splitTextToSize(String(prefill), fw - 4);
+      var ty = fy + fontSize * 0.38;
+      lines.forEach(function(l) { if (ty < fy + fh - 2) { doc.text(l, fx + 2, ty); ty += fontSize * 0.42; } });
+    }
+  }
+
+  // Calculate text block height — always sets the right font size before splitting
+  function fieldHeight(text, width, fontSize, minH) {
+    fontSize = fontSize || CONTENT_FS;
+    if (!text) return minH || 10;
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', 'normal');
+    var lines = doc.splitTextToSize(String(text), width - 6);
+    // Use generous line height (0.55) + extra padding so the viewer never auto-shrinks
+    return Math.max(minH || 10, lines.length * fontSize * 0.55 + 8);
+  }
+
+  // Helper: editable AcroForm field with fixed font size (no double-draw)
+  var FULL_W = pw - 4;
+  function editText(name, text, x, y, w, h, fs, bold, multiline) {
+    fs = fs || CONTENT_FS;
+    try {
+      var AcroFormTextField = window.jspdf && window.jspdf.AcroFormTextField;
+      if (typeof AcroFormTextField === 'function') {
+        var field = new AcroFormTextField();
+        field.fieldName = name;
+        field.x = x; field.y = y; field.width = w; field.height = h;
+        if (multiline) field.multiline = true;
+        field.fontSize = fs;
+        field.value = String(text||''); field.defaultValue = String(text||'');
+        field.borderStyle = 'none';
+        doc.addField(field);
+        return y + h;
+      }
+    } catch(e) {}
+    // Fallback si AcroForm no disponible
+    doc.setFontSize(fs); doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setTextColor(30,30,30);
+    var lines = doc.splitTextToSize(String(text||''), w - 3);
+    var ty = y + fs * 0.38;
+    lines.forEach(function(l) {
+      if (ty > 278) { doc.addPage(); addPageHeader(); ty = 25; }
+      doc.text(l, x + 1.5, ty); ty += fs * 0.44;
+    });
+    return ty;
+  }
+
   sectionHeader('RIESGOS DETECTADOS Y FORMACIONES');
   result.riesgos.forEach(function(r, idx) {
-    checkPage(30);
-    // Risk card background
-    var cardH = 18 + (r.formaciones.length * 16) + (r.coberturaEmpresa ? 12 : 0);
-    doc.setFillColor(250,248,245); doc.roundedRect(lm-2, y-5, pw+4, cardH, 2, 2, 'F');
-    // Severity bar
+    checkPage(60);
     var sevC = r.severidad === 'alta' ? [232,69,28] : r.severidad === 'media' ? [232,160,28] : [30,180,100];
-    doc.setFillColor(sevC[0],sevC[1],sevC[2]); doc.rect(lm-2, y-5, 3, cardH, 'F');
-    // Risk name + severity badge
-    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
-    doc.text((idx+1) + '. ' + r.nombre, lm+4, y);
-    var sevTxt = (t.sev[r.severidad] || r.severidad.toUpperCase());
+    var sevTxt = r.severidad === 'alta' ? 'ALTA' : r.severidad === 'media' ? 'MEDIA' : 'BAJA';
+
+    // ── CABECERA ─────────────────────────────────────────
+    doc.setFillColor(248,246,242); doc.rect(lm-2, y-5, pw+4, 13, 'F');
+    doc.setFillColor(sevC[0],sevC[1],sevC[2]); doc.rect(lm-2, y-5, 3, 13, 'F');
+    editText('r_nombre_'+idx, (idx+1)+'. '+r.nombre, lm+5, y-4, pw-22, 11, 10, true, false);
     doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(sevC[0],sevC[1],sevC[2]);
-    doc.text(sevTxt, pageW-lm, y, { align: 'right' });
-    y += 5;
-    blockLine(r.descripcion, 8.5, false, [100,100,100], 4);
-    // Formaciones
-    r.formaciones.forEach(function(f) {
-      checkPage(16);
+    doc.text(sevTxt, pageW-lm, y+2, { align: 'right' });
+    y += 12;
+
+    // ── IMAGEN (proporciones originales, ancho máximo pw) ──
+    var hasImg = r.imagenReferencia >= 0 && analysisImageData[r.imagenReferencia];
+    if (hasImg) {
+      try {
+        var imgD = analysisImageData[r.imagenReferencia];
+        var maxW = 60, maxH = 37;
+        var ratio = (imgD.w && imgD.h) ? imgD.w / imgD.h : 4/3;
+        var iW, iH;
+        if (ratio >= maxW / maxH) {
+          iW = maxW; iH = maxW / ratio;
+        } else {
+          iH = maxH; iW = maxH * ratio;
+        }
+        iW = Math.round(iW * 10) / 10;
+        iH = Math.round(iH * 10) / 10;
+        var iX = lm + (pw - iW) / 2;
+        checkPage(iH + 8);
+        doc.addImage('data:'+imgD.mediaType+';base64,'+imgD.data, 'JPEG', iX, y, iW, iH);
+        doc.setDrawColor(200,195,188); doc.setLineWidth(0.2); doc.rect(iX, y, iW, iH);
+        doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(160,160,160);
+        doc.text('Imagen de referencia', lm+pw/2, y+iH+3, { align: 'center' });
+        y += iH + 6;
+      } catch(e) {}
+    }
+
+    // ── DESCRIPCIÓN — siempre ancho completo (FULL_W) ────
+    doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100);
+    doc.text('DESCRIPCION DEL RIESGO', lm+2, y); y += 2;
+    doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+    var descLines = doc.splitTextToSize(r.descripcion||'', FULL_W-3);
+    var descH = Math.max(10, descLines.length * CONTENT_FS * 0.44 + 4);
+    doc.roundedRect(lm+2, y, FULL_W, descH, 1, 1, 'FD');
+    editText('r_desc_'+idx, r.descripcion, lm+2, y, FULL_W, descH, CONTENT_FS, false, true);
+    y += descH + 4;
+
+    // ── CAUSAS + CONSECUENCIAS ───────────────────────────
+    if ((r.causas && r.causas.length) || (r.consecuencias && r.consecuencias.length)) {
+      checkPage(20);
+      var colW = pw / 2 - 3;
+      var causTxt = (r.causas||[]).map(function(c){return '• '+c;}).join('\n');
+      var consTxt = (r.consecuencias||[]).map(function(c){return '• '+c;}).join('\n');
+      var cauLines = doc.splitTextToSize(causTxt||' ', colW-3);
+      var conLines = doc.splitTextToSize(consTxt||' ', colW-3);
+      var blockH = Math.max(cauLines.length, conLines.length) * CONTENT_FS * 0.44 + 9;
+      // Causas
+      doc.setFillColor(253,243,241); doc.roundedRect(lm, y, colW, blockH, 1, 1, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(192,57,43);
+      doc.text('CAUSAS', lm+2, y+4);
+      doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+      doc.roundedRect(lm+2, y+6, colW-4, blockH-8, 1, 1, 'FD');
+      editText('r_causas_'+idx, causTxt, lm+2, y+6, colW-4, blockH-8, CONTENT_FS, false, true);
+      // Consecuencias
+      var cx2 = lm+colW+4;
+      doc.setFillColor(255,248,220); doc.roundedRect(cx2, y, colW, blockH, 1, 1, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(180,120,0);
+      doc.text('CONSECUENCIAS', cx2+2, y+4);
+      doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+      doc.roundedRect(cx2+2, y+6, colW-4, blockH-8, 1, 1, 'FD');
+      editText('r_cons_'+idx, consTxt, cx2+2, y+6, colW-4, blockH-8, CONTENT_FS, false, true);
+      y += blockH + 4;
+    }
+
+    // ── MEDIDAS PREVENTIVAS ──────────────────────────────
+    if (r.medidasPreventivas && r.medidasPreventivas.length) {
+      checkPage(18);
+      var medTxt = r.medidasPreventivas.map(function(m){return '• '+m;}).join('\n');
+      var medLines = doc.splitTextToSize(medTxt, FULL_W-3);
+      var medH = Math.max(10, medLines.length * CONTENT_FS * 0.44 + 4);
+      doc.setFillColor(232,248,240); doc.roundedRect(lm, y, pw, medH+9, 1, 1, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(20,110,60);
+      doc.text('MEDIDAS PREVENTIVAS', lm+2, y+4);
+      doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+      doc.roundedRect(lm+2, y+6, FULL_W, medH, 1, 1, 'FD');
+      editText('r_med_'+idx, medTxt, lm+2, y+6, FULL_W, medH, CONTENT_FS, false, true);
+      y += medH + 13;
+    }
+
+    // ── FORMACIONES ──────────────────────────────────────
+    r.formaciones.forEach(function(f, fi) {
+      checkPage(20);
       var ob = f.tipo === 'obligatoria';
       var fc = ob ? [232,69,28] : [30,150,80];
-      doc.setFillColor(fc[0],fc[1],fc[2]); doc.roundedRect(lm+4, y-3.5, ob ? 22 : 24, 5.5, 1, 1, 'F');
+      doc.setFillColor(fc[0],fc[1],fc[2]); doc.roundedRect(lm+2, y-3, ob?22:24, 5, 1, 1, 'F');
       doc.setFontSize(6.5); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
-      doc.text(ob ? t.OB : t.RE, lm+5, y); y -= 0.5;
-      doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
-      doc.text(f.nombre, lm + (ob ? 28 : 30), y + 0.5);
-      y += 5.5;
-      blockLine(f.justificacion, 7.5, false, [120,120,120], 8);
+      doc.text(ob ? t.OB : t.RE, lm+3, y);
+      var cW = pw-(ob?28:30)-2;
+      doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+      doc.roundedRect(lm+(ob?27:29), y-4, cW, 7, 1, 1, 'FD');
+      editText('r_course_'+idx+'_'+fi, f.nombre, lm+(ob?27:29), y-4, cW, 7, CONTENT_FS, true, false);
+      y += 5;
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(130,130,130);
+      doc.text('Justificacion:', lm+4, y);
+      var jLines = doc.splitTextToSize(f.justificacion||'', pw-28);
+      var jH = Math.max(8, jLines.length * CONTENT_FS * 0.44 + 4);
+      doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+      doc.roundedRect(lm+26, y-2, pw-28, jH, 1, 1, 'FD');
+      editText('r_just_'+idx+'_'+fi, f.justificacion, lm+26, y-2, pw-28, jH, CONTENT_FS, false, true);
+      y += jH + 1;
       if (f.normativa && f.normativa.length) {
-        blockLine(t.norm + ' ' + f.normativa.join(' · '), 7, false, [160,160,160], 8);
+        var nTxt = t.norm+' '+f.normativa.join(' · ');
+        doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+        doc.roundedRect(lm+4, y, pw-6, 7, 1, 1, 'FD');
+        editText('r_norm_'+idx+'_'+fi, nTxt, lm+4, y, pw-6, 7, 7, false, false);
+        y += 9;
       }
     });
-    // SP Activa coverage
+
+    // ── COBERTURA SP ACTIVA ──────────────────────────────
     if (r.coberturaEmpresa) {
-      checkPage(12);
+      checkPage(14);
       var cov = r.coberturaEmpresa;
-      var covBg = cov.estado === 'cubierto' ? [230,248,238] : cov.estado === 'parcial' ? [255,248,220] : [253,232,228];
-      var covFg = cov.estado === 'cubierto' ? [20,110,60] : cov.estado === 'parcial' ? [150,100,0] : [180,40,30];
-      var covTxt = cov.estado === 'cubierto' ? 'SP Activa: Cubierto' : cov.estado === 'parcial' ? 'SP Activa: Cobertura parcial' : 'SP Activa: Sin formacion disponible';
-      doc.setFillColor(covBg[0],covBg[1],covBg[2]); doc.roundedRect(lm+4, y-3, pw-8, 9, 1.5, 1.5, 'F');
-      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(covFg[0],covFg[1],covFg[2]);
-      doc.text(covTxt, lm+7, y+1);
-      if (cov.formacion) { doc.setFont('helvetica','normal'); doc.text('  Curso: ' + cov.formacion, lm+7, y+6); }
-      y += cov.gap ? 13 : 9;
-      if (cov.gap) blockLine('Brecha: ' + cov.gap, 7.5, false, [180,40,30], 8);
+      var covBg = cov.estado==='cubierto'?[230,248,238]:cov.estado==='parcial'?[255,248,220]:[253,232,228];
+      var covFg = cov.estado==='cubierto'?[20,110,60]:cov.estado==='parcial'?[150,100,0]:[180,40,30];
+      var covIcon = cov.estado==='cubierto'?'Cubierto':cov.estado==='parcial'?'Parcial':'Sin cobertura';
+      var cleanGap = cov.gap ? cov.gap.replace(/[€$£]/g,'').trim() : '';
+      var cleanCurso = cov.formacion ? cov.formacion.replace(/[€$£]/g,'').trim() : '';
+      var covTxt = 'SP Activa: '+covIcon+(cleanCurso?'  |  Curso: '+cleanCurso:'')+(cleanGap?'  |  Brecha: '+cleanGap:'');
+      doc.setFontSize(CONTENT_FS); doc.setFont('helvetica','normal');
+      var covLines = doc.splitTextToSize(covTxt, FULL_W-8);
+      var covH = Math.max(12, covLines.length * CONTENT_FS * 0.55 + 8);
+      doc.setFillColor(covBg[0],covBg[1],covBg[2]); doc.roundedRect(lm+2, y-1, pw-4, covH+8, 1.5, 1.5, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(covFg[0],covFg[1],covFg[2]);
+      doc.text('COBERTURA SP ACTIVA', lm+4, y+3);
+      doc.setFillColor(252,252,250); doc.setDrawColor(200,195,188); doc.setLineWidth(0.2);
+      doc.roundedRect(lm+4, y+5, FULL_W-4, covH, 1, 1, 'FD');
+      editText('r_cov_'+idx, covTxt, lm+4, y+5, FULL_W-4, covH, CONTENT_FS, false, true);
+      y += covH + 13;
     }
-    y += 5;
+
+    // ── CAMPOS VACÍOS DEL TÉCNICO ─────────────────────────
+    checkPage(26);
+    doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100);
+    doc.text('OBSERVACIONES DEL TECNICO PRL:', lm+2, y); y += 2;
+    addEditField('r_obs_'+idx, lm+2, y, pw-4, 14, true, '', 9); y += 16;
+    doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100);
+    doc.text('RESPONSABLE:', lm+2, y);
+    doc.text('FECHA LIMITE:', lm+pw/2+2, y); y += 2;
+    addEditField('r_resp_'+idx, lm+2, y, pw/2-4, 8, false, '', 9);
+    addEditField('r_fecha_'+idx, lm+pw/2+2, y, pw/2-4, 8, false, '', 9); y += 10;
+
+    doc.setDrawColor(220,215,210); doc.setLineWidth(0.3);
+    doc.line(lm, y, lm+pw, y); y += 7;
   });
 
   // Acciones correctivas
@@ -1100,20 +1318,31 @@ function exportPDF() {
     checkPage(20);
     sectionHeader('ACCIONES CORRECTIVAS', [180,40,30]);
     result.incumplimientos.forEach(function(inc, idx) {
-      checkPage(20);
+      checkPage(30);
       var urgColors = { inmediata: [192,57,43], corto_plazo: [183,119,13], medio_plazo: [30,122,74] };
       var urgLabels = { inmediata: 'INMEDIATA', corto_plazo: 'CORTO PLAZO', medio_plazo: 'MEDIO PLAZO' };
       var uc = urgColors[inc.urgencia] || [100,100,100];
-      doc.setFillColor(250,248,245); doc.roundedRect(lm-2, y-5, pw+4, 5, 1, 1, 'F');
-      doc.setFillColor(uc[0],uc[1],uc[2]); doc.rect(lm-2, y-5, 3, 5, 'F');
+      doc.setFillColor(250,248,245); doc.roundedRect(lm-2, y-5, pw+4, 7, 1, 1, 'F');
+      doc.setFillColor(uc[0],uc[1],uc[2]); doc.rect(lm-2, y-5, 3, 7, 'F');
       doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
       doc.text((idx+1) + '. ' + inc.descripcion, lm+4, y-1);
       if (inc.categoria) { doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150); doc.text(inc.categoria, pageW-lm, y-1, { align: 'right' }); }
-      y += 3;
+      y += 5;
       if (inc.urgencia) { doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(uc[0],uc[1],uc[2]); doc.text('Urgencia: ' + (urgLabels[inc.urgencia] || inc.urgencia), lm+4, y); y += 4; }
       blockLine('Accion: ' + inc.accion, 8.5, false, [60,60,60], 4);
       if (inc.normativa && inc.normativa.length) blockLine(t.norm + ' ' + inc.normativa.join(' · '), 7.5, false, [150,150,150], 4);
+      // Editable fields
+      checkPage(18);
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100);
+      doc.text('RESPONSABLE:', lm+4, y);
+      doc.text('FECHA EJECUCION:', lm + pw/2 + 2, y);
+      doc.text('ESTADO:', lm + pw*0.75 + 2, y);
       y += 2;
+      addEditField('a_resp_' + idx, lm+4, y, pw/2 - 6, 7);
+      addEditField('a_fecha_' + idx, lm + pw/2 + 2, y, pw/4 - 4, 7);
+      addEditField('a_estado_' + idx, lm + pw*0.75 + 2, y, pw/4 - 4, 7);
+      y += 9;
+      doc.setDrawColor(220,215,210); doc.setLineWidth(0.2); doc.line(lm, y, lm+pw, y); y += 5;
     });
   }
 
@@ -1123,6 +1352,30 @@ function exportPDF() {
     sectionHeader('MEJORAS DE SALUD RECOMENDADAS', [30,122,74]);
     result.saludMejoras.forEach(function(m) { blockLine('• ' + m, 9, false, [60,60,60], 3); });
   }
+
+  // Bloque de firma del técnico
+  checkPage(55);
+  y += 4;
+  sectionHeader('VALIDACION Y FIRMA DEL TECNICO PRL');
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
+  doc.text('Nombre del tecnico PRL:', lm, y); y += 2;
+  addEditField('firma_nombre', lm, y, pw/2 - 4, 8);
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
+  doc.text('Nº colegiado / Titulacion:', lm + pw/2 + 4, y - 2);
+  addEditField('firma_colegiado', lm + pw/2 + 4, y, pw/2 - 4, 8);
+  y += 10;
+  doc.text('Fecha de la inspeccion:', lm, y); y += 2;
+  addEditField('firma_fecha', lm, y, pw/3 - 4, 8);
+  doc.text('Empresa / Centro de trabajo:', lm + pw/3 + 4, y - 2);
+  addEditField('firma_empresa', lm + pw/3 + 4, y, pw*2/3 - 4, 8);
+  y += 14;
+  doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(100,100,100);
+  doc.text('FIRMA DEL TECNICO:', lm, y);
+  doc.text('FIRMA Y SELLO EMPRESA:', lm + pw/2 + 4, y);
+  y += 2;
+  doc.setDrawColor(180,180,180); doc.setLineWidth(0.25);
+  doc.rect(lm, y, pw/2 - 4, 22); doc.rect(lm + pw/2 + 4, y, pw/2 - 4, 22);
+  y += 22;
 
   addPageFooter();
   doc.save('RiskScan_PRL_Informe_' + (companyName || 'Empresa').replace(/\s+/g,'_') + '.pdf');
